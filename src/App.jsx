@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar';
 import { AddWord } from './components/AddWord';
 import { WordList } from './components/WordList';
 import { Flashcards } from './components/Flashcards';
+import { Settings } from './components/Settings';
 
 function App() {
   const [activeTab, setActiveTab] = useState('library');
@@ -11,9 +12,22 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [dictionarySettings, setDictionarySettings] = useState(() => {
+    const saved = localStorage.getItem('lexiflow_settings');
+    return saved ? JSON.parse(saved) : {
+      source: 'free',
+      mwKey: '',
+      fallback: true
+    };
+  });
+
   useEffect(() => {
     localStorage.setItem('lexiflow_words', JSON.stringify(words));
   }, [words]);
+
+  useEffect(() => {
+    localStorage.setItem('lexiflow_settings', JSON.stringify(dictionarySettings));
+  }, [dictionarySettings]);
 
   const handleAddWord = (wordData) => {
     const newWord = {
@@ -56,17 +70,22 @@ function App() {
           <WordList 
             words={words} 
             onDelete={handleDeleteWord} 
-            onMarkMarked={handleMarkMastered} /* Typo fix in next step if needed, checking component prop */
             onMarkMastered={handleMarkMastered}
           />
         )}
         {activeTab === 'add' && (
-          <AddWord onAdd={handleAddWord} />
+          <AddWord onAdd={handleAddWord} settings={dictionarySettings} />
         )}
         {activeTab === 'review' && (
           <Flashcards 
             words={words} 
             onMarkMastered={handleMarkMastered} 
+          />
+        )}
+        {activeTab === 'settings' && (
+          <Settings 
+            settings={dictionarySettings} 
+            onUpdate={setDictionarySettings} 
           />
         )}
       </main>

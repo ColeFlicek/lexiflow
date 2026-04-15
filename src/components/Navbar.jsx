@@ -1,11 +1,12 @@
 import React from 'react';
-import { BookMarked, PlayCircle, PlusCircle } from 'lucide-react';
+import { BookMarked, PlayCircle, PlusCircle, Settings as SettingsIcon } from 'lucide-react';
 
 export function Navbar({ activeTab, setActiveTab }) {
   const tabs = [
     { id: 'library', label: 'Library', icon: <BookMarked size={20} /> },
     { id: 'add', label: 'Add Word', icon: <PlusCircle size={20} /> },
     { id: 'review', label: 'Review', icon: <PlayCircle size={20} /> },
+    { id: 'settings', label: 'Settings', icon: <SettingsIcon size={20} /> },
   ];
 
   return (
