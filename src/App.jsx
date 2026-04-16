@@ -34,6 +34,7 @@ function App() {
       ...wordData,
       id: Date.now(),
       mastered: false,
+      knownCount: 0,
       addedAt: new Date().toISOString(),
     };
     setWords([newWord, ...words]);
@@ -44,10 +45,26 @@ function App() {
     setWords(words.filter(w => w.id !== id));
   };
 
-  const handleMarkMastered = (id) => {
-    setWords(words.map(w => 
-      w.id === id ? { ...w, mastered: !w.mastered } : w
-    ));
+  const handleUpdateMastery = (id, result) => {
+    setWords(words.map(w => {
+      if (w.id !== id) return w;
+
+      let newCount = w.knownCount || 0;
+      let newMastered = w.mastered;
+
+      if (result === 'manual') {
+        newMastered = !w.mastered;
+        newCount = newMastered ? 5 : 0;
+      } else if (result === 'knew') {
+        newCount = Math.min(5, newCount + 1);
+        if (newCount === 5) newMastered = true;
+      } else if (result === 'forgot') {
+        newCount = Math.max(0, newCount - 1);
+        newMastered = false;
+      }
+
+      return { ...w, knownCount: newCount, mastered: newMastered };
+    }));
   };
 
   return (
@@ -70,7 +87,7 @@ function App() {
           <WordList 
             words={words} 
             onDelete={handleDeleteWord} 
-            onMarkMastered={handleMarkMastered}
+            onMarkMastered={(id) => handleUpdateMastery(id, 'manual')}
           />
         )}
         {activeTab === 'add' && (
@@ -79,7 +96,7 @@ function App() {
         {activeTab === 'review' && (
           <Flashcards 
             words={words} 
-            onMarkMastered={handleMarkMastered} 
+            onReviewResult={handleUpdateMastery} 
           />
         )}
         {activeTab === 'settings' && (

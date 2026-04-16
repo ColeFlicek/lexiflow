@@ -1,31 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, ChevronLeft, ChevronRight, CheckCircle, Volume2, Trophy } from 'lucide-react';
+import { RotateCcw, ChevronLeft, ChevronRight, CheckCircle, Volume2, Trophy, Brain, XCircle, Zap } from 'lucide-react';
 
-export function Flashcards({ words, onMarkMastered }) {
+export function Flashcards({ words, onReviewResult }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
+  const [sessionKey, setSessionKey] = useState(0); // Used to restart and re-shuffle
 
-  // Only review non-mastered words or a mix? 
-  // Requirement sagt "mark as mastered", so we probably review non-mastered words.
-  const unmasteredWords = words.filter(w => !w.mastered);
+  // Process and priority-shuffle the words for each session
+  const reviewPool = useMemo(() => {
+    const unmastered = words.filter(w => !w.mastered);
+    
+    // Group by knownCount
+    const groups = {};
+    unmastered.forEach(w => {
+      const count = w.knownCount || 0;
+      if (!groups[count]) groups[count] = [];
+      groups[count].push(w);
+    });
 
-  if (unmasteredWords.length === 0) {
+    // Shuffle within each group and flatten
+    const result = [];
+    const sortedLevels = Object.keys(groups).sort((a, b) => Number(a) - Number(b));
+    
+    sortedLevels.forEach(level => {
+      const shuffledLevel = [...groups[level]].sort(() => Math.random() - 0.5);
+      result.push(...shuffledLevel);
+    });
+
+    return result;
+  }, [words, sessionKey]);
+
+  if (reviewPool.length === 0) {
     return (
       <div className="glass fade-in" style={{ padding: '3rem', textAlign: 'center' }}>
         <Trophy size={64} style={{ margin: '0 auto 1.5rem', color: 'var(--primary)' }} />
-        <h2 style={{ marginBottom: '1rem' }}>Great Job!</h2>
-        <p style={{ color: 'var(--text-muted)' }}>You've mastered all the words in your library. Add more to keep learning!</p>
+        <h2 style={{ marginBottom: '1rem' }}>Library Mastered!</h2>
+        <p style={{ color: 'var(--text-muted)' }}>You've mastered all current words. Keep it up!</p>
       </div>
     );
   }
 
-  const currentWord = unmasteredWords[currentIndex];
+  const currentWord = reviewPool[currentIndex];
 
   const handleNext = () => {
     setIsFlipped(false);
-    if (currentIndex < unmasteredWords.length - 1) {
+    if (currentIndex < reviewPool.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
       setSessionDone(true);
@@ -41,13 +62,9 @@ export function Flashcards({ words, onMarkMastered }) {
 
   const toggleFlip = () => setIsFlipped(!isFlipped);
 
-  const handleMastered = () => {
-    onMarkMastered(currentWord.id);
-    if (unmasteredWords.length === 1) {
-      setSessionDone(true);
-    } else if (currentIndex === unmasteredWords.length - 1) {
-      setCurrentIndex(Math.max(0, currentIndex - 1));
-    }
+  const handleReviewStep = (result) => {
+    onReviewResult(currentWord.id, result);
+    handleNext();
   };
 
   const playAudio = (e) => {
@@ -59,13 +76,13 @@ export function Flashcards({ words, onMarkMastered }) {
     return (
       <div className="glass fade-in" style={{ padding: '3rem', textAlign: 'center' }}>
         <Trophy size={64} style={{ margin: '0 auto 1.5rem', color: 'var(--primary)' }} />
-        <h2 style={{ marginBottom: '1rem' }}>Session Complete!</h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>You've reviewed all pending words.</p>
+        <h2 style={{ marginBottom: '1rem' }}>Session Over</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>You've made great progress today!</p>
         <button 
-          onClick={() => { setSessionDone(false); setCurrentIndex(0); }}
+          onClick={() => { setSessionDone(false); setCurrentIndex(0); setSessionKey(prev => prev + 1); }}
           style={{ width: '100%', background: 'var(--primary)', color: 'var(--bg-deep)' }}
         >
-          <RotateCcw size={20} /> Restart Session
+          <RotateCcw size={20} /> New Priority Session
         </button>
       </div>
     );
@@ -74,10 +91,25 @@ export function Flashcards({ words, onMarkMastered }) {
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.25rem' }}>Review Mode</h2>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-          {currentIndex + 1} / {unmasteredWords.length}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Brain size={18} color="var(--primary)" />
+          <h2 style={{ fontSize: '1.1rem' }}>Priority Review</h2>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ 
+              fontSize: '0.75rem', 
+              background: 'rgba(255,165,0,0.1)', 
+              color: 'var(--primary)', 
+              padding: '0.2rem 0.6rem', 
+              borderRadius: '1rem',
+              fontWeight: 700
+            }}>
+              Level {currentWord.knownCount || 0}/5
+            </span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                {currentIndex + 1} / {reviewPool.length}
+            </span>
+        </div>
       </div>
 
       <div 
@@ -107,13 +139,13 @@ export function Flashcards({ words, onMarkMastered }) {
             {currentWord.audio && (
               <button 
                 onClick={playAudio} 
-                style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', padding: '0.75rem' }}
+                style={{ marginTop: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', padding: '0.75rem' }}
               >
                 <Volume2 size={24} />
               </button>
             )}
             <p style={{ position: 'absolute', bottom: '1.5rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              Tap to flip
+              Tap to see definition
             </p>
           </div>
 
@@ -153,18 +185,46 @@ export function Flashcards({ words, onMarkMastered }) {
         </motion.div>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem' }}>
-        <button onClick={handlePrev} disabled={currentIndex === 0} style={{ flex: 1, background: 'rgba(255,255,255,0.05)' }}>
-          <ChevronLeft size={20} /> Prev
-        </button>
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
         <button 
-          onClick={handleMastered}
-          style={{ flex: 1, background: 'rgba(34, 197, 94, 0.2)', color: 'var(--success)', border: '1px solid var(--success)' }}
+          onClick={() => handleReviewStep('forgot')}
+          style={{ 
+            flex: 1, 
+            background: 'rgba(239, 68, 68, 0.1)', 
+            color: 'var(--danger)', 
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            flexDirection: 'column',
+            gap: '0.25rem',
+            padding: '1rem'
+          }}
         >
-          <CheckCircle size={20} /> Mastered
+          <XCircle size={18} />
+          <span style={{ fontSize: '0.75rem' }}>Forgot</span>
         </button>
-        <button onClick={handleNext} style={{ flex: 1, background: 'var(--primary)', color: 'var(--bg-deep)' }}>
-          Next <ChevronRight size={20} />
+        
+        <button 
+          onClick={handlePrev} 
+          disabled={currentIndex === 0} 
+          style={{ flex: 0.5, background: 'rgba(255,255,255,0.05)', padding: '1rem' }}
+        >
+          <ChevronLeft size={20} />
+        </button>
+
+        <button 
+          onClick={() => handleReviewStep('knew')}
+          className="glass"
+          style={{ 
+            flex: 1.5, 
+            background: 'var(--primary)', 
+            color: 'var(--bg-deep)',
+            flexDirection: 'column',
+            gap: '0.25rem',
+            padding: '1rem',
+            boxShadow: '0 4px 14px 0 rgba(245, 158, 11, 0.3)'
+          }}
+        >
+          <CheckCircle size={20} />
+          <span style={{ fontSize: '0.875rem' }}>I Knew It</span>
         </button>
       </div>
     </div>
