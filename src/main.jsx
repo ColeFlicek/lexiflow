@@ -11,7 +11,7 @@ createRoot(document.getElementById('root')).render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/lexiflow/sw.js')
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
       .then(reg => console.log('SW registered'))
       .catch(err => console.log('SW failed', err));
   });
